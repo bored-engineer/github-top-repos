@@ -3,7 +3,7 @@ module github.com/bored-engineer/github-top-repos
 go 1.24.3
 
 require (
-	github.com/bored-engineer/github-auth-http-transport v0.0.0-20250422013629-8724afbcde00
+	github.com/bored-engineer/github-auth-http-transport v0.0.0-20250602054139-0c0f46e19a70
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
 )
 

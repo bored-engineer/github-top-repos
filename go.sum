@@ -2,6 +2,8 @@ github.com/bored-engineer/basicauth v0.0.0-20250414045855-277352454817 h1:pbVcgP
 github.com/bored-engineer/basicauth v0.0.0-20250414045855-277352454817/go.mod h1:6X+ZsFFGzHHJcbiZVFDKcDqJeA7knd4cm4fH3SwY6p0=
 github.com/bored-engineer/github-auth-http-transport v0.0.0-20250422013629-8724afbcde00 h1:PlqxxNei11P8U5tV20mZjtDzdKl8vNvyl974yEtDV5c=
 github.com/bored-engineer/github-auth-http-transport v0.0.0-20250422013629-8724afbcde00/go.mod h1:b5Xpdc8/YUQE9Y34gHcOLWTJHEyT6WHGpTBQwftXwS8=
+github.com/bored-engineer/github-auth-http-transport v0.0.0-20250602054139-0c0f46e19a70 h1:5Zt3XLirQ++n/+1hJLfFVT4DzGWyItOtUhPtyfm2+Rw=
+github.com/bored-engineer/github-auth-http-transport v0.0.0-20250602054139-0c0f46e19a70/go.mod h1:b5Xpdc8/YUQE9Y34gHcOLWTJHEyT6WHGpTBQwftXwS8=
 github.com/int128/oauth2-github-app v1.2.0 h1:3b8m0BFN0FIHY8BnK4RX/0Hu2pJSz04w7QQ3ng5/pYg=
 github.com/int128/oauth2-github-app v1.2.0/go.mod h1:3FTy9rDNIfqMxxri8apSmkJKUnhSLtJj4/FkDdhdYfc=
 github.com/jdx/go-netrc v1.0.0 h1:QbLMLyCZGj0NA8glAhxUpf1zDg6cxnWgMBbjq40W0gQ=
