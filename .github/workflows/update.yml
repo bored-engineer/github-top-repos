@@ -26,4 +26,5 @@ jobs:
           GH_4_CLIENT_SECRET: ${{ secrets.GH_4_CLIENT_SECRET }}
           GH_5_CLIENT_SECRET: ${{ secrets.GH_5_CLIENT_SECRET }}
         run: |
+          env
           seq 2008 $(date '+%Y') | parallel -j5 'GH_CLIENT_ID=$GH_{%}_CLIENT_ID GH_CLIENT_SECRET=$GH_{%}_CLIENT_SECRET ./github-top-repos "stars:>=100 created:{}-01-01T00:00:00Z..{}-12-31T23:59:59Z" > {}.csv'
