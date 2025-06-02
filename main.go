@@ -2,124 +2,142 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
+	"iter"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
+	ghauth "github.com/bored-engineer/github-auth-http-transport"
 	"github.com/shurcooL/githubv4"
-	"golang.org/x/oauth2"
 )
 
-// https://docs.github.com/en/graphql/reference/objects#repository
+// Repository is a struct that represents a GitHub repository.
 type Repository struct {
 	NameWithOwner  string
+	CreatedAt      githubv4.DateTime
+	PushedAt       githubv4.DateTime
 	StargazerCount int
-	ForkCount      int
-	DiskUsage      int
 }
 
-// Search performs a search of repositories matching the query.
-func RepositorySearch(ctx context.Context, client *githubv4.Client, query string) ([]Repository, error) {
-	// https://docs.github.com/en/graphql/reference/queries#search
-	var q struct {
+// Search runs a GitHub search query using GraphQL for a single page of 100 repository results
+// It sorts by the 'updated' date (oldest results first) which is actually the 'pushedAt' timestamp
+// It filters results to only include repositories pushed after the provided 'since' time (inclusive)
+func Search(
+	ctx context.Context,
+	client *githubv4.Client,
+	query string,
+	since *time.Time,
+) ([]Repository, bool, error) {
+	var results struct {
 		Search struct {
 			Nodes []struct {
 				Repository Repository `graphql:"... on Repository"`
 			}
 			PageInfo struct {
-				EndCursor   githubv4.String
 				HasNextPage bool
 			}
-		} `graphql:"search(query: $query, type: REPOSITORY, first: 100, after: $cursor)"`
+		} `graphql:"search(query: $query, type: REPOSITORY, first: 100)"`
 	}
-	// https://docs.github.com/en/graphql/guides/using-pagination-in-the-graphql-api
-	var cursor *githubv4.String
-	var repos []Repository
-	for {
-		if err := client.Query(ctx, &q, map[string]any{
-			"query":  githubv4.String(query),
-			"cursor": cursor,
-		}); err != nil {
-			return nil, err
-		}
-		for _, node := range q.Search.Nodes {
-			repos = append(repos, node.Repository)
-		}
-		if q.Search.PageInfo.HasNextPage {
-			cursor = githubv4.NewString(q.Search.PageInfo.EndCursor)
-		} else {
-			return repos, nil
+	query += " sort:updated-asc"
+	if since != nil {
+		query += " pushed:>=" + since.Format("2006-01-02T15:04:05Z")
+	}
+	log.Printf("searching: %s", query)
+	if err := client.Query(ctx, &results, map[string]any{
+		"query": githubv4.String(query),
+	}); err != nil {
+		return nil, false, err
+	}
+	repos := make([]Repository, 0, len(results.Search.Nodes))
+	for _, node := range results.Search.Nodes {
+		repos = append(repos, node.Repository)
+	}
+	return repos, !results.Search.PageInfo.HasNextPage, nil
+}
+
+// IterSearch calls Search repeatedly until all results are fetched, yielding each _unique_ repository
+func IterSearch(
+	ctx context.Context,
+	client *githubv4.Client,
+	query string,
+) iter.Seq2[Repository, error] {
+	return func(yield func(Repository, error) bool) {
+		var since *time.Time
+		uniq := make(map[string]struct{})
+		for {
+			repos, done, err := Search(ctx, client, query, since)
+			if err != nil {
+				// We hit secondary rate limit errors sometimes, just wait a bit
+				if strings.Contains(err.Error(), "You have exceeded a secondary rate limit.") {
+					log.Printf("sleeping: %s", err.Error())
+					time.Sleep(10 * time.Second)
+					continue // Retry
+				}
+				yield(Repository{}, err)
+				return // Stop iteration on error
+			}
+			for _, repo := range repos {
+				if _, ok := uniq[repo.NameWithOwner]; ok {
+					continue // Skip duplicate entries
+				}
+				uniq[repo.NameWithOwner] = struct{}{}
+				if !yield(repo, nil) {
+					return
+				}
+			}
+			// If we reached the end of the results, we're done!
+			if done {
+				return
+			}
+			// The next search should start from the last pushed at time of the last repository
+			if len(repos) > 0 {
+				since = &repos[len(repos)-1].PushedAt.Time
+			}
 		}
 	}
 }
 
-// Entry Point
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	// GraphQL client from GITHUB_TOKEN environment variable
-	client := githubv4.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: os.Getenv("GITHUB_TOKEN")},
-	)))
-
-	// Parse the CLI args
-	var field, query string
-	switch len(os.Args) {
-	case 3:
-		query = os.Args[2] + " "
-		fallthrough
-	case 2:
-		field = os.Args[1]
-		switch field {
-		default:
-			log.Fatalf("Unsupported field: %q", field)
-		case "stars", "forks", "size":
-		}
-	default:
-		fmt.Fprintf(os.Stderr, "Usage: %s (stars|forks|size) [query]\n", os.Args[0])
+	if len(os.Args) != 2 {
+		fmt.Fprintf(os.Stderr, "Usage: %s [repository search query]\n", filepath.Base(os.Args[0]))
 		os.Exit(1)
 	}
 
-	// De-duplicate repos since we can't use the cursor forever
-	var lastValue int
-	uniq := make(map[string]struct{})
-	for {
-		// Sort the results by the highest value first
-		query := query + "sort:" + field
-		if lastValue == 0 {
-			query += fmt.Sprintf(" %s:>0", field)
-		} else {
-			query += fmt.Sprintf(" %s:<=%d", field, lastValue)
-		}
-		// Run the query in batches of 1000 repos
-		repos, err := RepositorySearch(ctx, client, query)
+	transport, err := ghauth.Transport(ctx, nil)
+	if err != nil {
+		log.Fatalf("ghauth.Transport failed: %v", err)
+	}
+	client := githubv4.NewClient(&http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
+	})
+
+	writer := csv.NewWriter(os.Stdout)
+	defer writer.Flush()
+	for repo, err := range IterSearch(ctx, client, os.Args[1]) {
 		if err != nil {
-			log.Fatal(err)
-		} else if len(repos) == 0 {
-			break
+			log.Fatalf("Search failed: %v", err)
 		}
-		// Print the requested field for each repo
-		var value int
-		for _, repo := range repos {
-			switch field {
-			case "stars":
-				value = repo.StargazerCount
-			case "forks":
-				value = repo.ForkCount
-			case "size":
-				value = repo.DiskUsage
-			}
-			if _, ok := uniq[repo.NameWithOwner]; !ok {
-				uniq[repo.NameWithOwner] = struct{}{}
-				fmt.Printf("%s,%d\n", repo.NameWithOwner, value)
-			}
+		if err := writer.Write([]string{
+			repo.NameWithOwner,
+			repo.CreatedAt.Time.Format(time.RFC3339),
+			repo.PushedAt.Time.Format(time.RFC3339),
+			strconv.Itoa(repo.StargazerCount),
+		}); err != nil {
+			log.Fatalf("(*csv.Writer).Write failed: %v", err)
 		}
-		// If we have the same value as the start of this batch, can't loop further
-		if value == lastValue {
-			break
-		}
-		lastValue = value
+	}
+	if err := writer.Error(); err != nil {
+		log.Fatalf("(*csv.Writer).Flush failed: %v", err)
 	}
 }

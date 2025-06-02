@@ -1,16 +1,16 @@
 module github.com/bored-engineer/github-top-repos
 
-go 1.21.4
+go 1.24.2
 
 require (
-	github.com/shurcooL/githubv4 v0.0.0-20231126234147-1cffa1f02456
-	golang.org/x/oauth2 v0.15.0
+	github.com/bored-engineer/github-auth-http-transport v0.0.0-20250422013629-8724afbcde00
+	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
 )
 
 require (
-	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/bored-engineer/basicauth v0.0.0-20250414045855-277352454817 // indirect
+	github.com/int128/oauth2-github-app v1.2.0 // indirect
+	github.com/jdx/go-netrc v1.0.0 // indirect
 	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466 // indirect
-	golang.org/x/net v0.19.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.31.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 )
