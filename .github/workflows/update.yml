@@ -6,6 +6,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Setup
@@ -19,5 +21,17 @@ jobs:
           GH_APP_INSTALLATION_ID_1: ${{ vars.GH_APP_INSTALLATION_ID_1 }}
           GH_APP_PRIVATE_KEY_1: ${{ secrets.GH_APP_PRIVATE_KEY_1 }}
         run: |
-          env
           seq 2025 $(date '+%Y') | parallel -j1 'GH_APP_ID=$GH_APP_ID_{%} GH_APP_INSTALLATION_ID=$GH_APP_INSTALLATION_ID_{%} GH_APP_PRIVATE_KEY=$GH_APP_PRIVATE_KEY_{%} ./github-top-repos "stars:>=100 created:{}-01-01T00:00:00Z..{}-12-31T23:59:59Z" > {}.csv'
+      - name: Merge
+        run: |
+          echo "name,stars,created_at,pushed_at" > top.csv
+          sort --field-separator=, --numeric-sort --reverse --key=4 *.csv >> top.csv
+          head -n101 top.csv > top-100.csv
+          head -n1001 top.csv > top-1000.csv
+          head -n10001 top.csv > top-10000.csv
+          head -n1000001 top.csv > top-100000.csv
+      - name: Commit
+        run: |
+          git add top*.csv
+          git commit -m "Update: $(date)"
+          git push
