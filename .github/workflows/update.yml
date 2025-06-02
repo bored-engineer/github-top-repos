@@ -25,13 +25,15 @@ jobs:
       - name: Merge
         run: |
           echo "name,stars,created_at,pushed_at" > top.csv
-          sort --field-separator=, --numeric-sort --reverse --key=4 *.csv >> top.csv
+          sort --field-separator=, --numeric-sort --reverse --key=4 20*.csv >> top.csv
           head -n101 top.csv > top-100.csv
           head -n1001 top.csv > top-1000.csv
           head -n10001 top.csv > top-10000.csv
           head -n1000001 top.csv > top-100000.csv
       - name: Commit
         run: |
+          git config --global user.name "Luke Young"
+          git config --global user.email "541842+bored-engineer@users.noreply.github.com"
           git add top*.csv
           git commit -m "Update: $(date)"
           git push
