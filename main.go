@@ -31,10 +31,8 @@ type Repository struct {
 	ArchivedAt     githubv4.DateTime
 	CreatedAt      githubv4.DateTime
 	DatabaseId     int64
-	Description    string
 	DiskUsage      int64
 	ForkCount      int64
-	HomepageUrl    string
 	NameWithOwner  string
 	PushedAt       githubv4.DateTime
 	StargazerCount int64
@@ -85,7 +83,7 @@ func IterSearch(
 ) iter.Seq2[Repository, error] {
 	return func(yield func(Repository, error) bool) {
 		var since *time.Time
-		uniq := make(map[string]struct{})
+		uniq := make(map[int64]struct{})
 		for {
 			repos, done, err := Search(ctx, client, query, since)
 			if err != nil {
@@ -99,10 +97,10 @@ func IterSearch(
 				return // Stop iteration on error
 			}
 			for _, repo := range repos {
-				if _, ok := uniq[repo.NameWithOwner]; ok {
+				if _, ok := uniq[repo.DatabaseId]; ok {
 					continue // Skip duplicate entries
 				}
-				uniq[repo.NameWithOwner] = struct{}{}
+				uniq[repo.DatabaseId] = struct{}{}
 				if !yield(repo, nil) {
 					return
 				}
@@ -155,8 +153,6 @@ func main() {
 			csvDateTime(repo.UpdatedAt),
 			csvDateTime(repo.PushedAt),
 			csvDateTime(repo.ArchivedAt),
-			repo.Description,
-			repo.HomepageUrl,
 		}); err != nil {
 			log.Fatalf("(*csv.Writer).Write failed: %v", err)
 		}
