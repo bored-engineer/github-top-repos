@@ -18,12 +18,27 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
+// csvDateTime formats a githubv4.DateTime as a string for CSV output.
+func csvDateTime(dt githubv4.DateTime) string {
+	if dt.IsZero() {
+		return ""
+	}
+	return dt.Time.Format(time.RFC3339)
+}
+
 // Repository is a struct that represents a GitHub repository.
 type Repository struct {
-	NameWithOwner  string
+	ArchivedAt     githubv4.DateTime
 	CreatedAt      githubv4.DateTime
+	DatabaseId     int64
+	Description    string
+	DiskUsage      int64
+	ForkCount      int64
+	HomepageUrl    string
+	NameWithOwner  string
 	PushedAt       githubv4.DateTime
-	StargazerCount int
+	StargazerCount int64
+	UpdatedAt      githubv4.DateTime
 }
 
 // Search runs a GitHub search query using GraphQL for a single page of 100 repository results
@@ -128,11 +143,20 @@ func main() {
 		if err != nil {
 			log.Fatalf("Search failed: %v", err)
 		}
+		owner, name, _ := strings.Cut(repo.NameWithOwner, "/")
 		if err := writer.Write([]string{
-			repo.NameWithOwner,
-			strconv.Itoa(repo.StargazerCount),
-			repo.CreatedAt.Time.Format(time.RFC3339),
-			repo.PushedAt.Time.Format(time.RFC3339),
+			owner,
+			name,
+			strconv.FormatInt(repo.DatabaseId, 10),
+			strconv.FormatInt(repo.StargazerCount, 10),
+			strconv.FormatInt(repo.ForkCount, 10),
+			strconv.FormatInt(repo.DiskUsage, 10),
+			csvDateTime(repo.CreatedAt),
+			csvDateTime(repo.UpdatedAt),
+			csvDateTime(repo.PushedAt),
+			csvDateTime(repo.ArchivedAt),
+			repo.Description,
+			repo.HomepageUrl,
 		}); err != nil {
 			log.Fatalf("(*csv.Writer).Write failed: %v", err)
 		}
