@@ -1,7 +1,5 @@
 github.com/bored-engineer/basicauth v0.0.0-20250414045855-277352454817 h1:pbVcgPXW4NcCfZKOyhVVwp4nqGkRgb0NA+EJYJ6+u+g=
 github.com/bored-engineer/basicauth v0.0.0-20250414045855-277352454817/go.mod h1:6X+ZsFFGzHHJcbiZVFDKcDqJeA7knd4cm4fH3SwY6p0=
-github.com/bored-engineer/github-auth-http-transport v0.0.0-20250422013629-8724afbcde00 h1:PlqxxNei11P8U5tV20mZjtDzdKl8vNvyl974yEtDV5c=
-github.com/bored-engineer/github-auth-http-transport v0.0.0-20250422013629-8724afbcde00/go.mod h1:b5Xpdc8/YUQE9Y34gHcOLWTJHEyT6WHGpTBQwftXwS8=
 github.com/bored-engineer/github-auth-http-transport v0.0.0-20250602054139-0c0f46e19a70 h1:5Zt3XLirQ++n/+1hJLfFVT4DzGWyItOtUhPtyfm2+Rw=
 github.com/bored-engineer/github-auth-http-transport v0.0.0-20250602054139-0c0f46e19a70/go.mod h1:b5Xpdc8/YUQE9Y34gHcOLWTJHEyT6WHGpTBQwftXwS8=
 github.com/int128/oauth2-github-app v1.2.0 h1:3b8m0BFN0FIHY8BnK4RX/0Hu2pJSz04w7QQ3ng5/pYg=
@@ -16,6 +14,8 @@ github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7 h1:cYCy18SHPKRkv
 github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7/go.mod h1:zqMwyHmnN/eDOZOdiTohqIUKUrTFX62PNlu7IJdu0q8=
 github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466 h1:17JxqqJY66GmZVHkmAsGEkcIu0oCe3AM420QDgGwZx0=
 github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466/go.mod h1:9dIRpgIY7hVhoqfe0/FcYp0bpInZaT7dc3BYOprrIUE=
+github.com/spf13/pflag v1.0.6 h1:jFzHGLGAlb3ruxLB8MhbI6A8+AQX/2eW4qeyNZXNp2o=
+github.com/spf13/pflag v1.0.6/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 golang.org/x/oauth2 v0.30.0 h1:dnDm7JmhM45NNpd8FDDeLhK6FwqbOf4MLCM9zb1BOHI=
 golang.org/x/oauth2 v0.30.0/go.mod h1:B++QgG3ZKulg6sRPGD/mqlHQs5rB3Ml9erfeDY7xKlU=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=

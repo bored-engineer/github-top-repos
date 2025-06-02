@@ -33,7 +33,7 @@ jobs:
           GH_APP_PRIVATE_KEY_4: ${{ secrets.GH_APP_PRIVATE_KEY_4 }}
           GH_APP_PRIVATE_KEY_5: ${{ secrets.GH_APP_PRIVATE_KEY_5 }}
         run: |
-          seq 2007 $(date '+%Y') | parallel --line-buffer --jobs=5 'GH_APP_ID=$GH_APP_ID_{%} GH_APP_INSTALLATION_ID=$GH_APP_INSTALLATION_ID_{%} GH_APP_PRIVATE_KEY=$GH_APP_PRIVATE_KEY_{%} ./github-top-repos "stars:>=50 created:{}-01-01T00:00:00Z..{}-12-31T23:59:59Z" > {}.csv'
+          seq 2007 $(date '+%Y') | parallel --line-buffer --jobs=3 'GH_APP_ID=$GH_APP_ID_{%} GH_APP_INSTALLATION_ID=$GH_APP_INSTALLATION_ID_{%} GH_APP_PRIVATE_KEY=$GH_APP_PRIVATE_KEY_{%} ./github-top-repos --query "stars:>=50 sort:stars-desc" --start "{}-01-01" --end "{}-12-31" > {}.csv'
       - name: Merge
         run: |
           echo "owner,name,id,stars,forks,size,created_at,updated_at,pushed_at,archived_at" > top.csv
