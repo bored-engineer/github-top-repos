@@ -130,9 +130,9 @@ func main() {
 		}
 		if err := writer.Write([]string{
 			repo.NameWithOwner,
+			strconv.Itoa(repo.StargazerCount),
 			repo.CreatedAt.Time.Format(time.RFC3339),
 			repo.PushedAt.Time.Format(time.RFC3339),
-			strconv.Itoa(repo.StargazerCount),
 		}); err != nil {
 			log.Fatalf("(*csv.Writer).Write failed: %v", err)
 		}
