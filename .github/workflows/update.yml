@@ -15,16 +15,9 @@ jobs:
       - name: Scrape
         env:
           # We split requests across a couple of different GitHub Apps
-          GH_1_CLIENT_ID: ${{ vars.GH_1_CLIENT_ID }}
-          GH_2_CLIENT_ID: ${{ vars.GH_2_CLIENT_ID }}
-          GH_3_CLIENT_ID: ${{ vars.GH_3_CLIENT_ID }}
-          GH_4_CLIENT_ID: ${{ vars.GH_4_CLIENT_ID }}
-          GH_5_CLIENT_ID: ${{ vars.GH_5_CLIENT_ID }}
-          GH_1_CLIENT_SECRET: ${{ secrets.GH_1_CLIENT_SECRET }}
-          GH_2_CLIENT_SECRET: ${{ secrets.GH_2_CLIENT_SECRET }}
-          GH_3_CLIENT_SECRET: ${{ secrets.GH_3_CLIENT_SECRET }}
-          GH_4_CLIENT_SECRET: ${{ secrets.GH_4_CLIENT_SECRET }}
-          GH_5_CLIENT_SECRET: ${{ secrets.GH_5_CLIENT_SECRET }}
+          GH_APP_ID_1: ${{ vars.GH_APP_ID_1 }}
+          GH_APP_INSTALLATION_ID_1: ${{ vars.GH_APP_INSTALLATION_ID_1 }}
+          GH_APP_PRIVATE_KEY_1: ${{ secrets.GH_APP_PRIVATE_KEY_1 }}
         run: |
           env
-          seq 2008 $(date '+%Y') | parallel -j5 'GH_CLIENT_ID=$GH_{%}_CLIENT_ID GH_CLIENT_SECRET=$GH_{%}_CLIENT_SECRET env && GH_CLIENT_ID=$GH_{%}_CLIENT_ID GH_CLIENT_SECRET=$GH_{%}_CLIENT_SECRET ./github-top-repos "stars:>=100 created:{}-01-01T00:00:00Z..{}-12-31T23:59:59Z" > {}.csv'
+          seq 2025 $(date '+%Y') | parallel -j1 'GH_APP_ID=$GH_APP_ID_{%} GH_APP_INSTALLATION_ID=$GH_APP_INSTALLATION_ID_{%} GH_APP_PRIVATE_KEY=$GH_APP_PRIVATE_KEY_{%} ./github-top-repos "stars:>=100 created:{}-01-01T00:00:00Z..{}-12-31T23:59:59Z" > {}.csv'
