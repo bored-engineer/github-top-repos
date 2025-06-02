@@ -72,7 +72,8 @@ func Search(
 			"cursor": cursor,
 		}); err != nil {
 			// We hit secondary rate limit errors sometimes, just wait a bit
-			if strings.Contains(err.Error(), "You have exceeded a secondary rate limit.") {
+			// We've also seen "something went wrong" before, retry those
+			if strings.Contains(err.Error(), "You have exceeded a secondary rate limit.") || strings.Contains(err.Error(), "Something went wrong while executing your query.") {
 				log.Printf("sleeping: %s", err.Error())
 				time.Sleep(10 * time.Second)
 				goto Retry
