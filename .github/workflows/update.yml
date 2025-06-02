@@ -33,19 +33,39 @@ jobs:
           GH_APP_PRIVATE_KEY_4: ${{ secrets.GH_APP_PRIVATE_KEY_4 }}
           GH_APP_PRIVATE_KEY_5: ${{ secrets.GH_APP_PRIVATE_KEY_5 }}
         run: |
-          seq 2007 $(date '+%Y') | parallel --line-buffer --jobs=3 'GH_APP_ID=$GH_APP_ID_{%} GH_APP_INSTALLATION_ID=$GH_APP_INSTALLATION_ID_{%} GH_APP_PRIVATE_KEY=$GH_APP_PRIVATE_KEY_{%} ./github-top-repos --query "stars:>=25 sort:stars-desc" --start "{}-01-01" --end "{}-12-31" > {}.csv'
+          seq 2025 $(date '+%Y') | parallel --line-buffer --jobs=3 'GH_APP_ID=$GH_APP_ID_{%} GH_APP_INSTALLATION_ID=$GH_APP_INSTALLATION_ID_{%} GH_APP_PRIVATE_KEY=$GH_APP_PRIVATE_KEY_{%} ./github-top-repos --query "stars:>=25 sort:stars-desc" --start "{}-01-01" --end "{}-12-31" > {}.csv'
       - name: Merge
         run: |
-          echo "owner,name,id,stars,forks,size,created_at,updated_at,pushed_at,archived_at" > top.csv
-          sort --field-separator=, --numeric-sort --reverse --key=4 20*.csv >> top.csv
-          head -n101 top.csv > top-100.csv
-          head -n1001 top.csv > top-1000.csv
-          head -n10001 top.csv > top-10000.csv
-          head -n1000001 top.csv > top-100000.csv
+          echo "owner,name,id,stars,forks,size,created_at,updated_at,pushed_at,archived_at" > all.csv
+          sort --field-separator=, --numeric-sort --reverse --key=4 20*.csv >> all.csv
+          head -n1001 all.csv > top-1000.csv
+      - name: Compress
+        run: |
+          gzip -9 all.csv
       - name: Commit
         run: |
           git config --global user.name "Luke Young"
           git config --global user.email "541842+bored-engineer@users.noreply.github.com"
           git add top*.csv
-          git commit -m "Update: $(date)"
+          git commit -m "Update: $(date) -> Action URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           git push
+      - name: Generate Tag
+        id: tag
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "${{ steps.tag.outputs.date }}" \
+            --notes "Action URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            "${{ steps.tag.outputs.date }}"
+      - name: Upload Artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload \
+            --repo "$GITHUB_REPOSITORY" \
+            "${{ steps.tag.outputs.date }}" \
+            "all.csv.gz"
