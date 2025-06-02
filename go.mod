@@ -1,6 +1,6 @@
 module github.com/bored-engineer/github-top-repos
 
-go 1.24.2
+go 1.24.3
 
 require (
 	github.com/bored-engineer/github-auth-http-transport v0.0.0-20250422013629-8724afbcde00
