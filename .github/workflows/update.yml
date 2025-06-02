@@ -8,7 +8,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Go
+      - name: Setup
         uses: actions/setup-go@v5
       - name: Build
         run: go build -v .
+      - name: Scrape
+        env:
+          # We split requests across a couple of different GitHub Apps
+          GH_1_CLIENT_ID: ${{ vars.GH_1_CLIENT_ID }}
+          GH_2_CLIENT_ID: ${{ vars.GH_2_CLIENT_ID }}
+          GH_3_CLIENT_ID: ${{ vars.GH_3_CLIENT_ID }}
+          GH_4_CLIENT_ID: ${{ vars.GH_4_CLIENT_ID }}
+          GH_5_CLIENT_ID: ${{ vars.GH_5_CLIENT_ID }}
+          GH_1_CLIENT_SECRET: ${{ secrets.GH_1_CLIENT_SECRET }}
+          GH_2_CLIENT_SECRET: ${{ secrets.GH_2_CLIENT_SECRET }}
+          GH_3_CLIENT_SECRET: ${{ secrets.GH_3_CLIENT_SECRET }}
+          GH_4_CLIENT_SECRET: ${{ secrets.GH_4_CLIENT_SECRET }}
+          GH_5_CLIENT_SECRET: ${{ secrets.GH_5_CLIENT_SECRET }}
+        run: |
+          seq 2008 $(date '+%Y') | parallel -j5 'GH_CLIENT_ID=$GH_{%}_CLIENT_ID GH_CLIENT_SECRET=$GH_{%}_CLIENT_SECRET ./github-top-repos "stars:>=100 created:{}-01-01T00:00:00Z..{}-12-31T23:59:59Z" > {}.csv'
