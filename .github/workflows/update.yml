@@ -59,7 +59,8 @@ jobs:
           git commit -m "Update: $(date) -> Action URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           git push
       - name: Generate Tag
-        run: echo "TAG_NAME=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+        run: |
+          echo "TAG_NAME=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
       - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
