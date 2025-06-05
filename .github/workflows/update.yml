@@ -69,7 +69,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "$TAG_NAME" \
             --notes "Action URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            "${{ steps.tag.outputs.date }}"
+            "$TAG_NAME"
       - name: Upload Artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
