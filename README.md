@@ -1,2 +1,2 @@
 # github-top-repos
-Lists the top GitHub repositories by stars using the GraphQL API.
+Lists all GitHub repositories with more than 100 stars using the GraphQL API, updated daily: [latest release](https://github.com/bored-engineer/github-top-repos/releases/latest).
