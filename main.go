@@ -80,7 +80,6 @@ func Search(
 			}
 			return nil, err
 		}
-		log.Printf("searching(%d): %s", offset, query)
 		for _, node := range results.Search.Nodes {
 			if _, ok := uniq[node.Repository.DatabaseId]; ok {
 				continue // Skip duplicate entries
@@ -132,28 +131,33 @@ func main() {
 	writer := csv.NewWriter(os.Stdout)
 	defer writer.Flush()
 	for day := startTime; !day.After(endTime); day = day.AddDate(0, 0, 1) {
-		query := fmt.Sprintf("%s created:%sT00:00:00Z..%sT23:59:59Z", *query, day.Format("2006-01-02"), day.Format("2006-01-02"))
-		repos, err := Search(ctx, client, query)
-		if err != nil {
-			log.Fatalf("Search failed: %v", err)
-		}
-		for _, repo := range repos {
-			owner, name, _ := strings.Cut(repo.NameWithOwner, "/")
-			if err := writer.Write([]string{
-				owner,
-				name,
-				strconv.FormatInt(repo.DatabaseId, 10),
-				strconv.FormatInt(repo.StargazerCount, 10),
-				strconv.FormatInt(repo.ForkCount, 10),
-				strconv.FormatInt(repo.DiskUsage, 10),
-				csvDateTime(repo.CreatedAt),
-				csvDateTime(repo.UpdatedAt),
-				csvDateTime(repo.PushedAt),
-				csvDateTime(repo.ArchivedAt),
-			}); err != nil {
-				log.Fatalf("(*csv.Writer).Write failed: %v", err)
+		total := 0
+		for hour := 0; hour < 24; hour++ {
+			query := fmt.Sprintf("%s created:%sT%02d:00:00Z..%sT%02d:59:59Z", *query, day.Format("2006-01-02"), hour, day.Format("2006-01-02"), hour)
+			repos, err := Search(ctx, client, query)
+			if err != nil {
+				log.Fatalf("Search failed: %v", err)
+			}
+			total += len(repos)
+			for _, repo := range repos {
+				owner, name, _ := strings.Cut(repo.NameWithOwner, "/")
+				if err := writer.Write([]string{
+					owner,
+					name,
+					strconv.FormatInt(repo.DatabaseId, 10),
+					strconv.FormatInt(repo.StargazerCount, 10),
+					strconv.FormatInt(repo.ForkCount, 10),
+					strconv.FormatInt(repo.DiskUsage, 10),
+					csvDateTime(repo.CreatedAt),
+					csvDateTime(repo.UpdatedAt),
+					csvDateTime(repo.PushedAt),
+					csvDateTime(repo.ArchivedAt),
+				}); err != nil {
+					log.Fatalf("(*csv.Writer).Write failed: %v", err)
+				}
 			}
 		}
+		log.Printf("Collected %d results for %s", total, day.Format("2006-01-02"))
 	}
 	if err := writer.Error(); err != nil {
 		log.Fatalf("(*csv.Writer).Flush failed: %v", err)
