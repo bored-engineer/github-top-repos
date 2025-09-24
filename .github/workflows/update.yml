@@ -25,6 +25,18 @@ jobs:
           GH_APP_ID_6: ${{ vars.GH_APP_ID_6 }}
           GH_APP_ID_7: ${{ vars.GH_APP_ID_7 }}
           GH_APP_ID_8: ${{ vars.GH_APP_ID_8 }}
+          GH_APP_ID_9: ${{ vars.GH_APP_ID_9 }}
+          GH_APP_ID_10: ${{ vars.GH_APP_ID_10 }}
+          GH_APP_ID_11: ${{ vars.GH_APP_ID_11 }}
+          GH_APP_ID_12: ${{ vars.GH_APP_ID_12 }}
+          GH_APP_ID_13: ${{ vars.GH_APP_ID_13 }}
+          GH_APP_ID_14: ${{ vars.GH_APP_ID_14 }}
+          GH_APP_ID_15: ${{ vars.GH_APP_ID_15 }}
+          GH_APP_ID_16: ${{ vars.GH_APP_ID_16 }}
+          GH_APP_ID_17: ${{ vars.GH_APP_ID_17 }}
+          GH_APP_ID_18: ${{ vars.GH_APP_ID_18 }}
+          GH_APP_ID_19: ${{ vars.GH_APP_ID_19 }}
+          GH_APP_ID_20: ${{ vars.GH_APP_ID_20 }}
           GH_APP_INSTALLATION_ID_1: ${{ vars.GH_APP_INSTALLATION_ID_1 }}
           GH_APP_INSTALLATION_ID_2: ${{ vars.GH_APP_INSTALLATION_ID_2 }}
           GH_APP_INSTALLATION_ID_3: ${{ vars.GH_APP_INSTALLATION_ID_3 }}
@@ -33,6 +45,18 @@ jobs:
           GH_APP_INSTALLATION_ID_6: ${{ vars.GH_APP_INSTALLATION_ID_6 }}
           GH_APP_INSTALLATION_ID_7: ${{ vars.GH_APP_INSTALLATION_ID_7 }}
           GH_APP_INSTALLATION_ID_8: ${{ vars.GH_APP_INSTALLATION_ID_8 }}
+          GH_APP_INSTALLATION_ID_9: ${{ vars.GH_APP_INSTALLATION_ID_9 }}
+          GH_APP_INSTALLATION_ID_10: ${{ vars.GH_APP_INSTALLATION_ID_10 }}
+          GH_APP_INSTALLATION_ID_11: ${{ vars.GH_APP_INSTALLATION_ID_11 }}
+          GH_APP_INSTALLATION_ID_12: ${{ vars.GH_APP_INSTALLATION_ID_12 }}
+          GH_APP_INSTALLATION_ID_13: ${{ vars.GH_APP_INSTALLATION_ID_13 }}
+          GH_APP_INSTALLATION_ID_14: ${{ vars.GH_APP_INSTALLATION_ID_14 }}
+          GH_APP_INSTALLATION_ID_15: ${{ vars.GH_APP_INSTALLATION_ID_15 }}  
+          GH_APP_INSTALLATION_ID_16: ${{ vars.GH_APP_INSTALLATION_ID_16 }}
+          GH_APP_INSTALLATION_ID_17: ${{ vars.GH_APP_INSTALLATION_ID_17 }}
+          GH_APP_INSTALLATION_ID_18: ${{ vars.GH_APP_INSTALLATION_ID_18 }}
+          GH_APP_INSTALLATION_ID_19: ${{ vars.GH_APP_INSTALLATION_ID_19 }}
+          GH_APP_INSTALLATION_ID_20: ${{ vars.GH_APP_INSTALLATION_ID_20 }}
           GH_APP_PRIVATE_KEY_1: ${{ secrets.GH_APP_PRIVATE_KEY_1 }}
           GH_APP_PRIVATE_KEY_2: ${{ secrets.GH_APP_PRIVATE_KEY_2 }}
           GH_APP_PRIVATE_KEY_3: ${{ secrets.GH_APP_PRIVATE_KEY_3 }}
@@ -41,8 +65,20 @@ jobs:
           GH_APP_PRIVATE_KEY_6: ${{ secrets.GH_APP_PRIVATE_KEY_6 }}
           GH_APP_PRIVATE_KEY_7: ${{ secrets.GH_APP_PRIVATE_KEY_7 }}
           GH_APP_PRIVATE_KEY_8: ${{ secrets.GH_APP_PRIVATE_KEY_8 }}
+          GH_APP_PRIVATE_KEY_9: ${{ secrets.GH_APP_PRIVATE_KEY_9 }}
+          GH_APP_PRIVATE_KEY_10: ${{ secrets.GH_APP_PRIVATE_KEY_10 }}
+          GH_APP_PRIVATE_KEY_11: ${{ secrets.GH_APP_PRIVATE_KEY_11 }}
+          GH_APP_PRIVATE_KEY_12: ${{ secrets.GH_APP_PRIVATE_KEY_12 }}
+          GH_APP_PRIVATE_KEY_13: ${{ secrets.GH_APP_PRIVATE_KEY_13 }}
+          GH_APP_PRIVATE_KEY_14: ${{ secrets.GH_APP_PRIVATE_KEY_14 }}
+          GH_APP_PRIVATE_KEY_15: ${{ secrets.GH_APP_PRIVATE_KEY_15 }}
+          GH_APP_PRIVATE_KEY_16: ${{ secrets.GH_APP_PRIVATE_KEY_16 }}
+          GH_APP_PRIVATE_KEY_17: ${{ secrets.GH_APP_PRIVATE_KEY_17 }}
+          GH_APP_PRIVATE_KEY_18: ${{ secrets.GH_APP_PRIVATE_KEY_18 }}
+          GH_APP_PRIVATE_KEY_19: ${{ secrets.GH_APP_PRIVATE_KEY_19 }}
+          GH_APP_PRIVATE_KEY_20: ${{ secrets.GH_APP_PRIVATE_KEY_20 }}
         run: |
-          seq 2007 $(date '+%Y') | parallel --line-buffer --jobs=8 'GH_APP_ID=$GH_APP_ID_{%} GH_APP_INSTALLATION_ID=$GH_APP_INSTALLATION_ID_{%} GH_APP_PRIVATE_KEY=$GH_APP_PRIVATE_KEY_{%} ./github-top-repos --query "stars:>=10 sort:stars-desc" --start "{}-01-01" --end "{}-12-31" > {}.csv'
+          seq 2007 $(date '+%Y') | parallel --line-buffer --jobs=20 'GH_APP_ID=$GH_APP_ID_{%} GH_APP_INSTALLATION_ID=$GH_APP_INSTALLATION_ID_{%} GH_APP_PRIVATE_KEY=$GH_APP_PRIVATE_KEY_{%} ./github-top-repos --query "stars:>=10 sort:stars-desc" --start "{}-01-01" --end "{}-12-31" > {}.csv'
       - name: Merge
         run: |
           echo "owner,name,id,stars,forks,size,created_at,updated_at,pushed_at,archived_at" > all.csv
