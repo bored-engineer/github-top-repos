@@ -16,6 +16,7 @@ import (
 	ghauth "github.com/bored-engineer/github-auth-http-transport"
 	"github.com/shurcooL/githubv4"
 	"github.com/spf13/pflag"
+	"go.uber.org/ratelimit"
 )
 
 // csvDateTime formats a githubv4.DateTime as a string for CSV output.
@@ -44,6 +45,7 @@ func Search(
 	ctx context.Context,
 	client *githubv4.Client,
 	query string,
+	rl ratelimit.Limiter,
 ) (repos []Repository, _ error) {
 	// Loop but with overlapping offsets to ensure we don't miss any results
 	uniq := make(map[int64]struct{})
@@ -67,6 +69,7 @@ func Search(
 				}
 			} `graphql:"search(query: $query, type: REPOSITORY, first: 100, after: $cursor)"`
 		}
+		rl.Take() // Rate limit before each request
 		if err := client.Query(ctx, &results, map[string]any{
 			"query":  githubv4.String(query),
 			"cursor": cursor,
@@ -101,6 +104,7 @@ func main() {
 	query := pflag.StringP("query", "q", "", "GitHub search query")
 	start := pflag.StringP("start", "s", "", "Start date for filtering repositories (RFC3339 format)")
 	end := pflag.StringP("end", "e", "", "End date for filtering repositories (RFC3339 format)")
+	rate := pflag.IntP("rate", "r", 4900, "Rate limit for making requests per hour")
 	pflag.Parse()
 	if *query == "" || *start == "" || *end == "" {
 		pflag.Usage()
@@ -118,6 +122,7 @@ func main() {
 	if startTime.After(endTime) {
 		log.Fatalf("start date %s is after end date %s", startTime, endTime)
 	}
+	rl := ratelimit.New(*rate, ratelimit.Per(time.Hour))
 
 	transport, err := ghauth.Transport(ctx, nil)
 	if err != nil {
@@ -134,7 +139,7 @@ func main() {
 		total := 0
 		for hour := 0; hour < 24; hour++ {
 			query := fmt.Sprintf("%s created:%sT%02d:00:00Z..%sT%02d:59:59Z", *query, day.Format("2006-01-02"), hour, day.Format("2006-01-02"), hour)
-			repos, err := Search(ctx, client, query)
+			repos, err := Search(ctx, client, query, rl)
 			if err != nil {
 				log.Fatalf("Search failed: %v", err)
 			}
