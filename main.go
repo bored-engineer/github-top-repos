@@ -145,6 +145,7 @@ func main() {
 		for hour := 0; hour < 24; hour++ {
 			query := fmt.Sprintf("%s created:%sT%02d:00:00Z..%sT%02d:59:59Z", *query, day.Format("2006-01-02"), hour, day.Format("2006-01-02"), hour)
 			for repo := range Search(ctx, client, query, rl) {
+				total += 1
 				owner, name, _ := strings.Cut(repo.NameWithOwner, "/")
 				if err := writer.Write([]string{
 					owner,
