@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"fmt"
+	"iter"
 	"log"
 	"net/http"
 	"os"
@@ -46,55 +47,59 @@ func Search(
 	client *githubv4.Client,
 	query string,
 	rl ratelimit.Limiter,
-) (repos []Repository, _ error) {
-	// Loop but with overlapping offsets to ensure we don't miss any results
-	uniq := make(map[int64]struct{})
-	for offset := 0; offset < 1000; offset += 91 {
-	Retry:
-		var cursor *githubv4.String
-		if offset > 0 {
-			cursor = githubv4.NewString(githubv4.String(
-				base64.StdEncoding.EncodeToString(
-					[]byte(fmt.Sprintf("cursor:%d", offset)),
-				),
-			))
-		}
-		var results struct {
-			Search struct {
-				Nodes []struct {
-					Repository Repository `graphql:"... on Repository"`
-				}
-				PageInfo struct {
-					HasNextPage bool
-				}
-			} `graphql:"search(query: $query, type: REPOSITORY, first: 100, after: $cursor)"`
-		}
-		rl.Take() // Rate limit before each request
-		if err := client.Query(ctx, &results, map[string]any{
-			"query":  githubv4.String(query),
-			"cursor": cursor,
-		}); err != nil {
-			// We hit secondary rate limit errors sometimes, just wait a bit
-			// We've also seen "something went wrong" before, retry those
-			if strings.Contains(err.Error(), "You have exceeded a secondary rate limit") || strings.Contains(err.Error(), "Something went wrong while executing your query") || strings.Contains(err.Error(), "504 Gateway Timeout") {
-				log.Printf("sleeping: %s", err.Error())
-				time.Sleep(10 * time.Second)
-				goto Retry
+) iter.Seq[Repository] {
+	return func(yield func(Repository) bool) {
+		// Loop but with overlapping offsets to ensure we don't miss any results
+		uniq := make(map[int64]struct{})
+		for offset := 0; offset < 1000; offset += 91 {
+		Retry:
+			var cursor *githubv4.String
+			if offset > 0 {
+				cursor = githubv4.NewString(githubv4.String(
+					base64.StdEncoding.EncodeToString(
+						[]byte(fmt.Sprintf("cursor:%d", offset)),
+					),
+				))
 			}
-			return nil, err
-		}
-		for _, node := range results.Search.Nodes {
-			if _, ok := uniq[node.Repository.DatabaseId]; ok {
-				continue // Skip duplicate entries
+			var results struct {
+				Search struct {
+					Nodes []struct {
+						Repository Repository `graphql:"... on Repository"`
+					}
+					PageInfo struct {
+						HasNextPage bool
+					}
+				} `graphql:"search(query: $query, type: REPOSITORY, first: 100, after: $cursor)"`
 			}
-			uniq[node.Repository.DatabaseId] = struct{}{}
-			repos = append(repos, node.Repository)
-		}
-		if !results.Search.PageInfo.HasNextPage {
-			break // No more pages, exit the loop early
+			rl.Take() // Rate limit before each request
+			if err := client.Query(ctx, &results, map[string]any{
+				"query":  githubv4.String(query),
+				"cursor": cursor,
+			}); err != nil {
+				// We hit secondary rate limit errors sometimes, just wait a bit
+				// We've also seen "something went wrong" before, retry those
+				if strings.Contains(err.Error(), "You have exceeded a secondary rate limit") || strings.Contains(err.Error(), "Something went wrong while executing your query") || strings.Contains(err.Error(), "504 Gateway Timeout") {
+					log.Printf("sleeping: %s", err.Error())
+					time.Sleep(10 * time.Second)
+					goto Retry
+				}
+				// TODO: panic is bad
+				log.Fatalf("Search for %q at %d failed: %v", query, offset, err)
+			}
+			for _, node := range results.Search.Nodes {
+				if _, ok := uniq[node.Repository.DatabaseId]; ok {
+					continue // Skip duplicate entries
+				}
+				uniq[node.Repository.DatabaseId] = struct{}{}
+				if !yield(node.Repository) {
+					return
+				}
+			}
+			if !results.Search.PageInfo.HasNextPage {
+				return
+			}
 		}
 	}
-	return repos, nil
 }
 
 func main() {
@@ -139,12 +144,7 @@ func main() {
 		total := 0
 		for hour := 0; hour < 24; hour++ {
 			query := fmt.Sprintf("%s created:%sT%02d:00:00Z..%sT%02d:59:59Z", *query, day.Format("2006-01-02"), hour, day.Format("2006-01-02"), hour)
-			repos, err := Search(ctx, client, query, rl)
-			if err != nil {
-				log.Fatalf("Search failed: %v", err)
-			}
-			total += len(repos)
-			for _, repo := range repos {
+			for repo := range Search(ctx, client, query, rl) {
 				owner, name, _ := strings.Cut(repo.NameWithOwner, "/")
 				if err := writer.Write([]string{
 					owner,
