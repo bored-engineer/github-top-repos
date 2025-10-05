@@ -79,7 +79,11 @@ func Search(
 				log.Printf("Search for %q at %d failed: %v", query, offset, err)
 				// We hit secondary rate limit errors sometimes, just wait a bit
 				// We've also seen "something went wrong" before, retry those
-				if strings.Contains(err.Error(), "You have exceeded a secondary rate limit") || strings.Contains(err.Error(), "Something went wrong while executing your query") || strings.Contains(err.Error(), "504 Gateway Timeout") {
+				if strings.Contains(err.Error(), "You have exceeded a secondary rate limit") ||
+					strings.Contains(err.Error(), "Something went wrong while executing your query") ||
+					strings.Contains(err.Error(), "403 Forbidden") ||
+					strings.Contains(err.Error(), "502 Bad Gateway") ||
+					strings.Contains(err.Error(), "504 Gateway Timeout") {
 					time.Sleep(10 * time.Second)
 					goto Retry
 				}
