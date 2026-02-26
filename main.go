@@ -57,8 +57,8 @@ const payloadSearch = `query($query: String!, $cursor: String) {
 }`
 
 type GraphQLResponse struct {
-	Data struct {
-		Errors []json.RawMessage `json:"errors"`
+	Errors []json.RawMessage `json:"errors"`
+	Data   struct {
 		Search struct {
 			RepositoryCount int64 `json:"repositoryCount"`
 			PageInfo        struct {
@@ -136,8 +136,8 @@ func Search(
 	}
 
 	// Treat GraphQL errors as non-fatal for now, just log them
-	if len(decoded.Data.Errors) > 0 {
-		for _, err := range decoded.Data.Errors {
+	if len(decoded.Errors) > 0 {
+		for _, err := range decoded.Errors {
 			log.Printf("Search for %q with cursor %q got GraphQL error: %s", query, cursor, string(err))
 		}
 	}
