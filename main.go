@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	ratelimit "github.com/bored-engineer/ratelimit-transport"
 	oauth2githubapp "github.com/int128/oauth2-github-app"
 	"github.com/spf13/pflag"
@@ -55,6 +56,18 @@ const payloadSearch = `query($query: String!, $cursor: String) {
 	}
 }`
 
+type GraphQLResponse struct {
+	Data struct {
+		Search struct {
+			RepositoryCount int64 `json:"repositoryCount"`
+			PageInfo        struct {
+				HasNextPage bool `json:"hasNextPage"`
+			} `json:"pageInfo"`
+			Nodes []Repository `json:"nodes"`
+		} `json:"search"`
+	} `json:"data"`
+}
+
 // Repository is a struct that represents a GitHub repository.
 type Repository struct {
 	ArchivedAt     *time.Time `json:"archivedAt"`
@@ -74,7 +87,7 @@ func Search(
 	client *http.Client,
 	query string,
 	cursor string,
-) (int64, []Repository, bool, error) {
+) (*GraphQLResponse, error) {
 	vars := map[string]any{
 		"query": query,
 	}
@@ -89,12 +102,12 @@ func Search(
 		Variables: vars,
 	})
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("json.Marshal failed: %w", err)
+		return nil, fmt.Errorf("json.Marshal failed: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBytes))
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("http.NewRequestWithContext failed: %w", err)
+		return nil, fmt.Errorf("http.NewRequestWithContext failed: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
@@ -102,35 +115,60 @@ func Search(
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("(*http.Client).Do failed: %w", err)
+		return nil, fmt.Errorf("(*http.Client).Do failed: %w", err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("(*http.Response).Body.Read failed: %w", err)
+		return nil, fmt.Errorf("(*http.Response).Body.Read failed: %w", err)
 	}
 	if err := resp.Body.Close(); err != nil {
-		return 0, nil, false, fmt.Errorf("(*http.Response).Body.Close failed: %w", err)
+		return nil, fmt.Errorf("(*http.Response).Body.Close failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, nil, false, fmt.Errorf("(*http.Client).Do failed with %s (%d): %s", resp.Status, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("(*http.Client).Do failed with %s (%d): %s", resp.Status, resp.StatusCode, string(body))
 	}
-	var decoded struct {
-		Data struct {
-			Search struct {
-				RepositoryCount int64 `json:"repositoryCount"`
-				PageInfo        struct {
-					HasNextPage bool `json:"hasNextPage"`
-				} `json:"pageInfo"`
-				Nodes []Repository `json:"nodes"`
-			} `json:"search"`
-		} `json:"data"`
-	}
+	var decoded GraphQLResponse
 	if err := json.Unmarshal(body, &decoded); err != nil {
-		return 0, nil, false, fmt.Errorf("json.Unmarshal failed: %w", err)
+		return nil, fmt.Errorf("json.Unmarshal failed: %w", err)
 	}
-	return decoded.Data.Search.RepositoryCount, decoded.Data.Search.Nodes, decoded.Data.Search.PageInfo.HasNextPage, nil
+	return &decoded, nil
+}
+
+// SearchRetry retries some common GitHub GraphQL API errors
+func SearchRetry(
+	ctx context.Context,
+	client *http.Client,
+	query string,
+	cursor string,
+) (*GraphQLResponse, error) {
+	return retry.DoWithData(
+		func() (*GraphQLResponse, error) {
+			resp, err := Search(ctx, client, query, cursor)
+			if err != nil {
+				// We hit secondary rate limit errors sometimes, just wait a bit
+				// We've also seen "something went wrong" before, retry those
+				if strings.Contains(err.Error(), "You have exceeded a secondary rate limit") ||
+					strings.Contains(err.Error(), "Something went wrong while executing your query") ||
+					strings.Contains(err.Error(), "403 Forbidden") ||
+					strings.Contains(err.Error(), "502 Bad Gateway") ||
+					strings.Contains(err.Error(), "504 Gateway Timeout") {
+					return nil, err
+				}
+				return nil, retry.Unrecoverable(err)
+			}
+			return resp, nil
+		},
+		retry.Context(ctx),
+		retry.Attempts(3),
+		retry.Delay(10*time.Second),
+		retry.DelayType(retry.FixedDelay),
+		retry.LastErrorOnly(true),
+		retry.OnRetry(func(attempt uint, err error) {
+			log.Printf("Search for %q with cursor %q failed on retry %d: %v", query, cursor, attempt, err)
+		}),
+	)
 }
 
 // SearchPaginated loops over each page of results including retrying on errors
@@ -138,49 +176,39 @@ func SearchPaginated(
 	ctx context.Context,
 	client *http.Client,
 	query string,
-) (int64, []Repository, error) {
+) (resp *GraphQLResponse, _ error) {
 	// Deduplicate the results by databaseId
-	uniq := make(map[int64]struct{})
-	var repositories []Repository
+	uniq := make(map[int64]struct{}, 1000)
+	resp = new(GraphQLResponse)
 	// Loop but with overlapping offsets to ensure we don't miss any results
 	for offset := 0; offset < 1000; offset += 91 {
-	Retry:
 		var cursor string
 		if offset > 0 {
 			cursor = base64.StdEncoding.EncodeToString(
 				fmt.Appendf(nil, "cursor:%d", offset),
 			)
 		}
-		repositoryCount, page, hasNextPage, err := Search(ctx, client, query, cursor)
+		page, err := SearchRetry(ctx, client, query, cursor)
 		if err != nil {
-			// We hit secondary rate limit errors sometimes, just wait a bit
-			// We've also seen "something went wrong" before, retry those
-			if strings.Contains(err.Error(), "You have exceeded a secondary rate limit") ||
-				strings.Contains(err.Error(), "Something went wrong while executing your query") ||
-				strings.Contains(err.Error(), "403 Forbidden") ||
-				strings.Contains(err.Error(), "502 Bad Gateway") ||
-				strings.Contains(err.Error(), "504 Gateway Timeout") {
-				time.Sleep(10 * time.Second)
-				goto Retry
-			}
-			return 0, nil, fmt.Errorf("Search for %q at offset %d failed: %w", query, offset, err)
+			return nil, err
 		}
 		// If we've got more than 1000 repositories, bail, let the caller split the search space
-		if repositoryCount >= 1000 {
-			return repositoryCount, nil, nil
+		if page.Data.Search.RepositoryCount >= 1000 {
+			return page, nil
 		}
-		for _, repository := range page {
-			if _, ok := uniq[repository.DatabaseId]; ok {
+		resp.Data.Search.RepositoryCount = page.Data.Search.RepositoryCount
+		for _, repo := range page.Data.Search.Nodes {
+			if _, ok := uniq[repo.DatabaseId]; ok {
 				continue // Skip duplicate entries
 			}
-			uniq[repository.DatabaseId] = struct{}{}
-			repositories = append(repositories, repository)
+			uniq[repo.DatabaseId] = struct{}{}
+			resp.Data.Search.Nodes = append(resp.Data.Search.Nodes, repo)
 		}
-		if !hasNextPage {
+		if !page.Data.Search.PageInfo.HasNextPage {
 			break
 		}
 	}
-	return int64(len(repositories)), repositories, nil
+	return resp, nil
 }
 
 // SearchChunks splits the search space into chunks of <1000 repositories
@@ -191,18 +219,18 @@ func SearchChunks(
 	start time.Time,
 	end time.Time,
 ) ([]Repository, error) {
-	// In the ideal case, we'll get all the repositories in one go
 	queryChunk := query + " created:" + start.Format(time.RFC3339) + ".." + end.Format(time.RFC3339)
-	repositoryCount, repositories, err := SearchPaginated(ctx, client, queryChunk)
+	resp, err := SearchPaginated(ctx, client, queryChunk)
 	if err != nil {
 		return nil, err
 	}
-	if repositoryCount < 1000 {
-		return repositories, nil
+	// This is the ideal case, we got all the repositories in one go
+	if resp.Data.Search.RepositoryCount < 1000 {
+		return resp.Data.Search.Nodes, nil
 	}
 	// Assume that the results are evenly distributed, split into the number of chunks based on roughly 1000 results per chunk, rounded up
-	repositories = nil
-	chunks := (repositoryCount / 1000) + 1
+	var repositories []Repository
+	chunks := (resp.Data.Search.RepositoryCount / 1000) + 1
 	interval := (end.Sub(start) / time.Duration(chunks)).Round(time.Second)
 	for intervalStart := start; intervalStart.Before(end); intervalStart = intervalStart.Add(interval).Add(time.Second) {
 		intervalEnd := intervalStart.Add(interval)
@@ -311,7 +339,7 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("SearchChunks for %s failed: %w", start.Format("2006-01-02"), err)
 					}
-					log.Printf("gathered %d repositories for %s", len(repositories), start.Format("2006-01-02"))
+					log.Printf("SearchChunks for %s collected %d repositories", start.Format("2006-01-02"), len(repositories))
 					for _, repo := range repositories {
 						owner, name, _ := strings.Cut(repo.NameWithOwner, "/")
 						writerMu.Lock()

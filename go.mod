@@ -3,6 +3,7 @@ module github.com/bored-engineer/github-top-repos
 go 1.26.0
 
 require (
+	github.com/avast/retry-go/v4 v4.7.0
 	github.com/bored-engineer/ratelimit-transport v0.0.0-20260112232851-ff2f1f464758
 	github.com/int128/oauth2-github-app v1.2.1
 	github.com/spf13/pflag v1.0.10
