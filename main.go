@@ -152,6 +152,7 @@ func SearchRetry(
 				if strings.Contains(err.Error(), "You have exceeded a secondary rate limit") ||
 					strings.Contains(err.Error(), "Something went wrong while executing your query") ||
 					strings.Contains(err.Error(), "403 Forbidden") ||
+					strings.Contains(err.Error(), "500 Internal Server Error") ||
 					strings.Contains(err.Error(), "502 Bad Gateway") ||
 					strings.Contains(err.Error(), "504 Gateway Timeout") {
 					return nil, err
