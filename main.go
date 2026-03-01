@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -134,12 +135,12 @@ func Search(
 	if err := json.Unmarshal(body, &decoded); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal failed: %w", err)
 	}
-
-	// Treat GraphQL errors as non-fatal for now, just log them
 	if len(decoded.Errors) > 0 {
-		for _, err := range decoded.Errors {
-			log.Printf("Search for %q with cursor %q got GraphQL error: %s", query, cursor, string(err))
+		var errs []error
+		for idx, err := range decoded.Errors {
+			errs = append(errs, fmt.Errorf("GraphQL error %d: %s", idx, string(err)))
 		}
+		return nil, fmt.Errorf("Search for %q with cursor %q got GraphQL errors: %w", query, cursor, errors.Join(errs...))
 	}
 	return &decoded, nil
 }
