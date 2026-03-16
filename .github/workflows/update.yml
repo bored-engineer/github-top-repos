@@ -78,7 +78,7 @@ jobs:
           GH_APP_PRIVATE_KEY_19: ${{ secrets.GH_APP_PRIVATE_KEY_19 }}
           GH_APP_PRIVATE_KEY_20: ${{ secrets.GH_APP_PRIVATE_KEY_20 }}
         run: |
-          ./github-top-repos --query "stars:>1 sort:created-asc" > all.csv
+          ./github-top-repos --query "stars:>1 fork:true sort:created-asc" > all.csv
       - name: Merge
         run: |
           head -n1 all.csv > top-1000.csv
